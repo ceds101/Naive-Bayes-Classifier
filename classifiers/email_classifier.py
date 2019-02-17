@@ -1,6 +1,7 @@
 import os
 import mailparser
 import pickle
+import time
 from pandas import DataFrame
 from sklearn.feature_extraction.text import CountVectorizer
 
@@ -30,15 +31,22 @@ class EmailClassifier:
     
     def train(self):
         #PARSE EMAIL DATASET
-        for email_file in os.listdir(self.dataset_dir)[:20]: #[:n] means n emails para mas mabilis lng (hindi lahat map-parse)
+        print('====PARSING EMAILS====')
+        start_parse = time.time()
+        for email_file in os.listdir(self.dataset_dir)[:100]: #[:n] means n emails para mas mabilis lng (hindi lahat map-parse)
             with open(self.dataset_dir + email_file, encoding="utf8", errors="ignore") as email_fp:
                 email = mailparser.parse_from_file_obj(email_fp)
                 email_row = DataFrame({"message":[email.body], 
                                         "class":[email_file.split(".")[-1]]})
                 self.email_array = self.email_array.append(email_row, ignore_index=True)
                 #print(email_file, "appended into array")
+        end_parse = time.time()
+        print('====PARSING FINISHED====')
+        print(end_parse - start_parse, "Seconds")
 
         #TRAIN EMAIL DATASET
+        print('====TRAINING START====')
+        start_train = time.time()
         vectorizer = CountVectorizer()
 
         # This will generate a matrix m x n (m: email instance, n: word in the vocabulary)
@@ -53,9 +61,6 @@ class EmailClassifier:
         spam_count = ham_spam_count['spam']
         self.p_ham = ham_count/email_count
         self.p_spam = spam_count/email_count
-
-        print(self.p_ham)
-        print(self.p_spam)
 
         # Find n_spam and n_ham
         num_of_words_array = self.word_counts.sum(axis=1)
@@ -86,14 +91,19 @@ class EmailClassifier:
 
             self.p_words['ham'][word] = p_word_ham
             self.p_words['spam'][word] = p_word_spam
+        
+        end_train = time.time()
+        print('====TRAINING END====')
+        print(end_train - start_train, "Seconds")
 
         #Save probabilites and vocabulary to file
         self.save_p_words()
 
     def classify_email(self, email):
+
         pass
 
-    def cross_validation(self):
+    def check_performance(self):
         pass
 
 
