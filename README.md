@@ -10,3 +10,13 @@ Renamed the EMAIL files by appending an extension of `.ham` or `.spam`. We imple
 
 #### 2. Relocating of files
 The renamed EMAIL files are relocated in `trec07p_clean` this is done by the `email_utils.py` script
+
+#### 3. Preparing data for Training and Testing
+
+### Bayesian Classifier Construction
+
+### Data Classification
+
+### Performance Evaluation
+
+## Results and Future Work on the implementation
