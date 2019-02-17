@@ -1,5 +1,6 @@
 import os
 import mailparser
+import re
 import pickle
 import time
 from pandas import DataFrame
@@ -96,50 +97,41 @@ class EmailClassifier:
         print('====TRAINING END====')
         print(end_train - start_train, "Seconds")
 
-        #Save probabilites and vocabulary to file
-        self.save_p_words()
+        #Save classifier attributes
+        self.save_classifier()
 
-    def classify_email(self, email):
+    def classify_email(self, email_string):
+        email_class = None
+        p_new_word_ham = (self.laplace_smoothing)/(self.n_ham + len(self.vocabulary))
+        p_new_word_spam = (self.laplace_smoothing)/(self.n_spam + len(self.vocabulary))
 
-        pass
+        email_words = re.findall(r'\w+', email_string.lower())
+        
+        v_ham = self.p_ham
+        v_spam = self.p_spam
+        for word in email_words:
+            v_ham = v_ham * self.p_words['ham'].get(word, p_new_word_ham)
+            v_spam = v_spam * self.p_words['spam'].get(word, p_new_word_spam)
+        
+        if v_ham > v_spam:
+            email_class = "ham"
+        else:
+            email_class = "spam"
+        
+        print("Ham likelihood: ", v_ham)
+        print("Spam likelihood: ", v_spam)
+        
+        return email_class
 
     def check_performance(self):
         pass
-
-
-
-    # FILE MANAGEMENT
-    def save_p_words(self):
-        with open('proby_words.dat', 'wb') as pwords_fp:
-            pickle.dump(self.p_words, pwords_fp, pickle.HIGHEST_PROTOCOL)
     
-    def load_p_words(self):
-        with open('proby_words.dat', 'rb') as pwords_fp:
-            self.p_words = pickle.load(pwords_fp)
-
-    def clear_p_words(self):
-        open("proby_words.dat", "w").close()
+    #TEST
+    def save_classifier(self):
+        with open('classifier.dat', 'wb') as classifier_fp:
+            pickle.dump(self.__dict__, classifier_fp, pickle.HIGHEST_PROTOCOL)
     
-    # WORD COUNT MANAGEMENT
-    # def save_word_counts(self):
-    #     with open('word_counts.dat', 'wb') as wrdcnt_fp:
-    #         pickle.dump(self.word_counts, wrdcnt_fp, pickle.HIGHEST_PROTOCOL)
-    
-    # def load_word_counts(self):
-    #     with open('word_counts.dat', 'rb') as wrdcnt_fp:
-    #         self.word_counts = pickle.load(wrdcnt_fp)
-
-    # def clear_word_counts(self):
-    #     open("word_counts.dat", "w").close()
-
-    # VOCABULARY MANAGMENT
-    # def save_vocabulary(self):
-    #     with open('vocabulary.dat', 'wb') as vocab_fp:
-    #         pickle.dump(self.vocabulary, vocab_fp, pickle.HIGHEST_PROTOCOL)
-    
-    # def load_vocabulary(self):
-    #     with open('vocabulary.dat', 'rb') as vocab_fp:
-    #         self.vocabulary = pickle.load(vocab_fp)
-
-    # def clear_vocabulary(self):
-    #     open("vocabulary.dat", "w").close()
+    def load_classifier(self):
+        with open('classifier.dat', 'rb') as classifier_fp:
+            self.__dict__.clear()
+            self.__dict__.update(pickle.load(classifier_fp))
