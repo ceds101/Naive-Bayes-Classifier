@@ -126,7 +126,7 @@ class EmailClassifier:
     def check_performance(self):
         pass
     
-    #TEST
+    #TEST (BROKEN) TODO: FIX
     def save_classifier(self):
         with open('classifier.dat', 'wb') as classifier_fp:
             pickle.dump(self.__dict__, classifier_fp, pickle.HIGHEST_PROTOCOL)
