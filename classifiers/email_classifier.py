@@ -1,7 +1,7 @@
 import os
 import mailparser
 import re
-import pickle
+import json
 import time
 from pandas import DataFrame
 from sklearn.feature_extraction.text import CountVectorizer
@@ -126,12 +126,28 @@ class EmailClassifier:
     def check_performance(self):
         pass
     
-    #TEST (BROKEN) TODO: FIX
+    #Save classifier attributes to JSON file
     def save_classifier(self):
-        with open('classifier.dat', 'wb') as classifier_fp:
-            pickle.dump(self.__dict__, classifier_fp, pickle.HIGHEST_PROTOCOL)
+        classifier_attrs = {"dataset_dir": self.dataset_dir
+                            ,"laplace_smoothing": self.laplace_smoothing
+                            ,"vocabulary": self.vocabulary
+                            ,"p_ham": self.p_ham
+                            ,"p_spam": self.p_spam
+                            ,"n_ham": int(self.n_ham)
+                            ,"n_spam": int(self.n_spam)
+                            ,"p_words": self.p_words
+                            }
+        with open('classifier.json', 'w') as classifier_fp:
+            json.dump(classifier_attrs, classifier_fp)
     
     def load_classifier(self):
-        with open('classifier.dat', 'rb') as classifier_fp:
-            self.__dict__.clear()
-            self.__dict__.update(pickle.load(classifier_fp))
+        with open('classifier.json', 'r') as classifier_fp:
+            classifier_attrs = json.load(classifier_fp)
+            self.dataset_dir = classifier_attrs['dataset_dir']
+            self.laplace_smoothing = classifier_attrs['laplace_smoothing']
+            self.vocabulary = classifier_attrs['vocabulary']
+            self.p_ham = classifier_attrs['p_ham']
+            self.p_spam = classifier_attrs['p_spam']
+            self.n_ham = classifier_attrs['n_ham']
+            self.n_spam = classifier_attrs['n_spam']
+            self.p_words = classifier_attrs['p_words']
