@@ -19,4 +19,7 @@ The renamed EMAIL files are relocated in `trec07p_clean` this is done by the `em
 
 ### Performance Evaluation
 
+Exercise 2B - Yelp Reviews
+--------------------------
+
 ## Results and Future Work on the implementation
