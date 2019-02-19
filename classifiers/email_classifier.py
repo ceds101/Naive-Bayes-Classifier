@@ -1,10 +1,12 @@
 import os
 import mailparser
 import re
+import math
 import json
 import time
 from pandas import DataFrame
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics import confusion_matrix
 
 class EmailClassifier:
     #Parameters
@@ -34,7 +36,7 @@ class EmailClassifier:
         #PARSE EMAIL DATASET
         print('====PARSING EMAILS====')
         start_parse = time.time()
-        for email_file in os.listdir(self.dataset_dir)[:100]: #[:n] means n emails para mas mabilis lng (hindi lahat map-parse)
+        for email_file in os.listdir(self.dataset_dir)[:300]: #[:n] means n emails para mas mabilis lng (hindi lahat map-parse)
             with open(self.dataset_dir + email_file, encoding="utf8", errors="ignore") as email_fp:
                 email = mailparser.parse_from_file_obj(email_fp)
                 email_row = DataFrame({"message":[email.body], 
@@ -107,25 +109,37 @@ class EmailClassifier:
 
         email_words = re.findall(r'\w+', email_string.lower())
         
-        v_ham = self.p_ham
-        v_spam = self.p_spam
+        v_ham = math.log(self.p_ham)
+        v_spam = math.log(self.p_spam)
         for word in email_words:
-            v_ham = v_ham * self.p_words['ham'].get(word, p_new_word_ham)
-            v_spam = v_spam * self.p_words['spam'].get(word, p_new_word_spam)
+            curr_p_word_ham = self.p_words['ham'].get(word, p_new_word_ham)
+            curr_p_word_spam = self.p_words['spam'].get(word, p_new_word_spam)
+            v_ham = v_ham + math.log(curr_p_word_ham)
+            v_spam = v_spam + math.log(curr_p_word_spam)
         
         if v_ham > v_spam:
             email_class = "ham"
         else:
             email_class = "spam"
         
-        print("Ham likelihood: ", v_ham)
-        print("Spam likelihood: ", v_spam)
+        print("Ham log likelihood: ", v_ham)
+        print("Spam log likelihood: ", v_spam)
         
         return email_class
 
     def check_performance(self):
-        pass
-    
+        email_actual_class = []
+        email_predicted_class = []
+
+        for email_file in os.listdir(self.dataset_dir)[500:700]: #[start:end] means n emails para mas mabilis lng (hindi lahat map-parse)
+            with open(self.dataset_dir + email_file, encoding="utf8", errors="ignore") as email_fp:
+                email = mailparser.parse_from_file_obj(email_fp)
+
+                email_actual_class.append(email_file.split(".")[-1])
+                email_predicted_class.append(self.classify_email(email.body))
+
+        print(confusion_matrix(email_actual_class, email_predicted_class))
+
     #Save classifier attributes to JSON file
     def save_classifier(self):
         classifier_attrs = {"dataset_dir": self.dataset_dir
