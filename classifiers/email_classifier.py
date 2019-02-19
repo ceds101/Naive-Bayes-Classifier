@@ -127,6 +127,7 @@ class EmailClassifier:
         
         return email_class
 
+    #TODO: accuracy shits (stats)
     def check_performance(self):
         email_actual_class = []
         email_predicted_class = []
