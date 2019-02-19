@@ -6,7 +6,7 @@ import json
 import time
 from pandas import DataFrame
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, classification_report
 
 class EmailClassifier:
     #Parameters
@@ -102,6 +102,7 @@ class EmailClassifier:
         #Save classifier attributes
         self.save_classifier()
 
+    #TODO: ewan ko if mali yung pag gamit nung laplace smoothing
     def classify_email(self, email_string):
         email_class = None
         p_new_word_ham = (self.laplace_smoothing)/(self.n_ham + len(self.vocabulary))
@@ -127,7 +128,7 @@ class EmailClassifier:
         
         return email_class
 
-    #TODO: accuracy shits (stats)
+    #TODO: accuracy shits (stats),
     def check_performance(self):
         email_actual_class = []
         email_predicted_class = []
@@ -139,7 +140,8 @@ class EmailClassifier:
                 email_actual_class.append(email_file.split(".")[-1])
                 email_predicted_class.append(self.classify_email(email.body))
 
-        print(confusion_matrix(email_actual_class, email_predicted_class))
+        print(confusion_matrix(email_actual_class, email_predicted_class, labels=["ham", "spam"]))
+        print(classification_report(email_actual_class, email_predicted_class, labels=["ham", "spam"]))
 
     #Save classifier attributes to JSON file
     def save_classifier(self):
