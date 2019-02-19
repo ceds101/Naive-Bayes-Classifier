@@ -6,7 +6,7 @@ import json
 import time
 from pandas import DataFrame
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 
 class EmailClassifier:
     #Parameters
@@ -139,8 +139,9 @@ class EmailClassifier:
 
                 email_actual_class.append(email_file.split(".")[-1])
                 email_predicted_class.append(self.classify_email(email.body))
-
+        
         print(confusion_matrix(email_actual_class, email_predicted_class, labels=["ham", "spam"]))
+        #print("Accuracy:" , accuracy_score(email_actual_class, email_predicted_class))
         print(classification_report(email_actual_class, email_predicted_class, labels=["ham", "spam"]))
 
     #Save classifier attributes to JSON file
