@@ -4,7 +4,7 @@ import mailparser
 
 def main():
     email_classifier = EmailClassifier('dataset/trec07p_clean/data/', 1)
-    email_classifier.load_classifier()
+    email_classifier.train()
     #email_classifier.load_classifier()
     # with open('dataset/trec07p_clean/data/inmail.75417.ham', encoding="utf8", errors="ignore") as email_fp:
     #     email = mailparser.parse_from_file_obj(email_fp)
