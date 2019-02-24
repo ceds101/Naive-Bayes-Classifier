@@ -41,7 +41,7 @@ class EmailClassifier:
         print('====PARSING EMAILS====')
         start_parse = time.time()
 
-        for email_file in os.listdir(self.dataset_dir)[:300]: #[start:end]
+        for email_file in os.listdir(self.dataset_dir)[:300]: #array[start:end]
             with open(self.dataset_dir + email_file, encoding="utf8", errors="ignore") as email_fp:
                 email = mailparser.parse_from_file_obj(email_fp)
                 email_row = DataFrame({"message":[email.body], 
