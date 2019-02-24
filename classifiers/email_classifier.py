@@ -4,7 +4,9 @@ import re
 import math
 import json
 import time
+from pandas import read_json
 from pandas import DataFrame
+from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 
@@ -15,6 +17,8 @@ class EmailClassifier:
 
     #Initialize Variables
     email_array = DataFrame({'message': [], 'class': []})
+    email_train = DataFrame({'message': [], 'class': []})
+    email_test = DataFrame({'message': [], 'class': []})
 
     vocabulary = None
     word_counts = None
@@ -36,16 +40,27 @@ class EmailClassifier:
         #PARSE EMAIL DATASET
         print('====PARSING EMAILS====')
         start_parse = time.time()
+
         for email_file in os.listdir(self.dataset_dir)[:300]: #[start:end]
             with open(self.dataset_dir + email_file, encoding="utf8", errors="ignore") as email_fp:
                 email = mailparser.parse_from_file_obj(email_fp)
                 email_row = DataFrame({"message":[email.body], 
                                         "class":[email_file.split(".")[-1]]})
                 self.email_array = self.email_array.append(email_row, ignore_index=True)
-                #print(email_file, "appended into array")
+                print(email_file, "appended into array")
+        
         end_parse = time.time()
         print('====PARSING FINISHED====')
         print(end_parse - start_parse, "Seconds")
+
+        #SPLIT TRAINING SET AND TEST SET
+        print('====SPLITTING TRAIN-TEST====')
+        self.email_train, self.email_test = train_test_split(self.email_array, test_size=0.20, random_state=42)
+        print('====DONE SPLITTING TRAIN-TEST===')
+        print("Train size:", len(self.email_train.index))
+        print("Test size:", len(self.email_test.index))
+
+        print(self.email_train.index.values)
 
         #TRAIN EMAIL DATASET
         print('====TRAINING START====')
@@ -54,12 +69,13 @@ class EmailClassifier:
 
         # This will generate a matrix m x n (m: email instance, n: word in the vocabulary)
         # Each entry in the matrix represents how many times a word n appeared in a particular email instance m
-        self.word_counts = vectorizer.fit_transform(self.email_array['message'].values) 
+        self.word_counts = vectorizer.fit_transform(self.email_train['message'].values) 
         self.vocabulary = vectorizer.get_feature_names()
 
         # Calculate the prior probabilites [p(ham), p(spam)]
-        email_count = len(self.email_array.index)
-        ham_spam_count = self.email_array['class'].value_counts()
+        email_indexes = self.email_train.index.values
+        email_count = len(email_indexes)
+        ham_spam_count = self.email_train['class'].value_counts()
         ham_count = ham_spam_count['ham']
         spam_count = ham_spam_count['spam']
         self.p_ham = ham_count/email_count
@@ -67,34 +83,36 @@ class EmailClassifier:
 
         # Find n_spam and n_ham
         num_of_words_array = self.word_counts.sum(axis=1)
-        for email_index in range(email_count):
-            if self.email_array.loc[email_index, 'class'] == "ham":
-                self.n_ham = self.n_ham + num_of_words_array[email_index,0]
+        for index, email_num in enumerate(email_indexes):
+            if self.email_train.loc[email_num, 'class'] == "ham":
+                self.n_ham = self.n_ham + num_of_words_array[index,0]
             else:
-                self.n_spam = self.n_spam + num_of_words_array[email_index,0]
+                self.n_spam = self.n_spam + num_of_words_array[index,0]
         
         # Calculate the likelihood probabilities of each word in the vocabulary in each class 
         # [p(word_1|ham), p(word_1|spam), p(word_2|spam) ....]
         vocab_map = vectorizer.vocabulary_
 
         for word in self.vocabulary:
+            print('Training for word:', word)
             p_word_ham = 0.0
             p_word_spam = 0.0
 
             n_word_ham = 0
             n_word_spam = 0
-            for email_index in range(email_count):
-                if self.email_array.loc[email_index, 'class'] == "ham":
-                    n_word_ham = n_word_ham + self.word_counts[email_index, vocab_map[word]]
+            for index, email_num in enumerate(email_indexes):
+                if self.email_train.loc[email_num, 'class'] == "ham":
+                    n_word_ham = n_word_ham + self.word_counts[index, vocab_map[word]]
                 else:
-                    n_word_spam = n_word_spam + self.word_counts[email_index, vocab_map[word]]
+                    n_word_spam = n_word_spam + self.word_counts[index, vocab_map[word]]
 
             p_word_ham = (n_word_ham + self.laplace_smoothing)/(self.n_ham + len(self.vocabulary))
             p_word_spam = (n_word_spam + self.laplace_smoothing)/(self.n_spam + len(self.vocabulary))
 
             self.p_words['ham'][word] = p_word_ham
             self.p_words['spam'][word] = p_word_spam
-        
+            print('Done training for word:', word)
+
         end_train = time.time()
         print('====TRAINING END====')
         print(end_train - start_train, "Seconds")
@@ -102,7 +120,6 @@ class EmailClassifier:
         #Save classifier attributes
         self.save_classifier()
 
-    #TODO: ewan ko if mali yung pag gamit nung laplace smoothing
     def classify_email(self, email_string):
         email_class = None
         p_new_word_ham = (self.laplace_smoothing)/(self.n_ham + len(self.vocabulary))
@@ -128,17 +145,14 @@ class EmailClassifier:
         
         return email_class
 
-    #TODO: accuracy shits (stats),
     def check_performance(self):
         email_actual_class = []
         email_predicted_class = []
 
-        for email_file in os.listdir(self.dataset_dir)[500:700]: #[start:end] means n emails para mas mabilis lng (hindi lahat map-parse)
-            with open(self.dataset_dir + email_file, encoding="utf8", errors="ignore") as email_fp:
-                email = mailparser.parse_from_file_obj(email_fp)
-
-                email_actual_class.append(email_file.split(".")[-1])
-                email_predicted_class.append(self.classify_email(email.body))
+        for curr_email_index in self.email_test.index.values:
+            print(curr_email_index)
+            email_actual_class.append(self.email_test.loc[curr_email_index, 'class'])
+            email_predicted_class.append(self.classify_email(self.email_test.loc[curr_email_index, 'message']))
         
         print(confusion_matrix(email_actual_class, email_predicted_class, labels=["ham", "spam"]))
         #print("Accuracy:" , accuracy_score(email_actual_class, email_predicted_class))
@@ -154,6 +168,7 @@ class EmailClassifier:
                             ,"n_ham": int(self.n_ham)
                             ,"n_spam": int(self.n_spam)
                             ,"p_words": self.p_words
+                            ,"email_test": self.email_test.to_json(orient='index')
                             }
         with open('classifier.json', 'w') as classifier_fp:
             json.dump(classifier_attrs, classifier_fp)
@@ -169,3 +184,4 @@ class EmailClassifier:
             self.n_ham = classifier_attrs['n_ham']
             self.n_spam = classifier_attrs['n_spam']
             self.p_words = classifier_attrs['p_words']
+            self.email_test = read_json(classifier_attrs['email_test'], orient='index')
