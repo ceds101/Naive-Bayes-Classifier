@@ -75,6 +75,8 @@ class EmailClassifier:
         p_word['spam'][word] = p_word_spam
 
         print('Done training for word:', word)
+        print('Probability ham:', p_word_ham)
+        print('Probability spam:', p_word_spam)
         print(len(self.vocabulary))
         return p_word
 
@@ -84,7 +86,7 @@ class EmailClassifier:
         start_parse = time.time()
 
         pool = multiprocessing.Pool()
-        email_rows = pool.map(self.parse_email, os.listdir(self.dataset_dir))
+        email_rows = pool.map(self.parse_email, os.listdir(self.dataset_dir)[:300])
         pool.close()
         pool.join()
 
