@@ -41,13 +41,16 @@ class EmailClassifier:
         print('====PARSING EMAILS====')
         start_parse = time.time()
 
-        for email_file in os.listdir(self.dataset_dir)[:300]: #array[start:end]
+        for email_file in os.listdir(self.dataset_dir): #array[start:end]
             with open(self.dataset_dir + email_file, encoding="utf8", errors="ignore") as email_fp:
-                email = mailparser.parse_from_file_obj(email_fp)
-                email_row = DataFrame({"message":[email.body], 
+                try:
+                    email = mailparser.parse_from_file_obj(email_fp)
+                    email_row = DataFrame({"message":[email.body], 
                                         "class":[email_file.split(".")[-1]]})
-                self.email_array = self.email_array.append(email_row, ignore_index=True)
-                print(email_file, "appended into array")
+                    self.email_array = self.email_array.append(email_row, ignore_index=True)
+                    print(email_file, "appended into array")
+                except:
+                    pass
         
         end_parse = time.time()
         print('====PARSING FINISHED====')
@@ -55,12 +58,10 @@ class EmailClassifier:
 
         #SPLIT TRAINING SET AND TEST SET
         print('====SPLITTING TRAIN-TEST====')
-        self.email_train, self.email_test = train_test_split(self.email_array, test_size=0.20, random_state=42)
+        self.email_train, self.email_test = train_test_split(self.email_array, test_size=0.30, random_state=42)
         print('====DONE SPLITTING TRAIN-TEST===')
-        print("Train size:", len(self.email_train.index))
-        print("Test size:", len(self.email_test.index))
 
-        print(self.email_train.index.values)
+        #print(self.email_train.index.values)
 
         #TRAIN EMAIL DATASET
         print('====TRAINING START====')
@@ -71,6 +72,11 @@ class EmailClassifier:
         # Each entry in the matrix represents how many times a word n appeared in a particular email instance m
         self.word_counts = vectorizer.fit_transform(self.email_train['message'].values) 
         self.vocabulary = vectorizer.get_feature_names()
+
+        # CLEAN VOCABULARY
+        for word in list(self.vocabulary):
+            if not word.isalpha():
+                self.vocabulary.remove(word)
 
         # Calculate the prior probabilites [p(ham), p(spam)]
         email_indexes = self.email_train.index.values
@@ -93,7 +99,7 @@ class EmailClassifier:
         # [p(word_1|ham), p(word_1|spam), p(word_2|spam) ....]
         vocab_map = vectorizer.vocabulary_
 
-        for word in self.vocabulary:
+        for n, word in enumerate(self.vocabulary):
             print('Training for word:', word)
             p_word_ham = 0.0
             p_word_spam = 0.0
@@ -112,10 +118,15 @@ class EmailClassifier:
             self.p_words['ham'][word] = p_word_ham
             self.p_words['spam'][word] = p_word_spam
             print('Done training for word:', word)
+            print('Progress:', n+1, "/" , len(self.vocabulary))
 
         end_train = time.time()
         print('====TRAINING END====')
         print(end_train - start_train, "Seconds")
+
+        print("Train size:", len(self.email_train.index))
+        print("Test size:", len(self.email_test.index))
+        print(len(num_of_words_array))
 
         #Save classifier attributes
         self.save_classifier()
