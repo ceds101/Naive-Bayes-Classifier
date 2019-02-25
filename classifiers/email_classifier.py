@@ -5,8 +5,10 @@ import math
 import json
 import time
 import multiprocessing
+import pandas as pd
+import numpy as np
 from functools import partial
-from pandas import read_json
+from pandas import read_json, read_csv
 from pandas import DataFrame
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer
@@ -38,18 +40,6 @@ class EmailClassifier:
         self.dataset_dir = dataset_dir
         self.laplace_smoothing = laplace_smoothing
 
-    def parse_email(self, email_file):
-        with open(self.dataset_dir + email_file, encoding="utf8", errors="ignore") as email_fp:
-            try:
-                email = mailparser.parse_from_file_obj(email_fp)
-                email_row = DataFrame({"message":[email.body], 
-                                        "class":[email_file.split(".")[-1]]})
-                #self.email_array = self.email_array.append(email_row, ignore_index=True)
-                print(email_file, "read")
-                return email_row
-            except:
-                pass
-            
     def train_word(self, email_indexes, vocab_map, word):
         print('Training for word:', word)
         p_word_ham = 0.0
@@ -82,18 +72,14 @@ class EmailClassifier:
 
     def train(self):
         #PARSE EMAIL DATASET
-        print('====PARSING EMAILS====')
+        print('====READING EMAILS CSV====')
         start_parse = time.time()
 
-        pool = multiprocessing.Pool()
-        email_rows = pool.map(self.parse_email, os.listdir(self.dataset_dir)[:300])
-        pool.close()
-        pool.join()
+        self.email_array = read_csv("dataset/trec07p_clean/emails.csv", index_col=False, nrows=100, encoding="utf-8")
+        self.email_array = self.email_array.dropna()
 
-        self.email_array = self.email_array.append(email_rows, ignore_index=True)
-        
         end_parse = time.time()
-        print('====PARSING FINISHED====')
+        print('====READING FINISHED====')
         print(end_parse - start_parse, "Seconds")
 
         #SPLIT TRAINING SET AND TEST SET
@@ -106,7 +92,7 @@ class EmailClassifier:
         #TRAIN EMAIL DATASET
         print('====TRAINING START====')
         start_train = time.time()
-        vectorizer = CountVectorizer()
+        vectorizer = CountVectorizer(strip_accents='ascii', stop_words='english')
 
         # This will generate a matrix m x n (m: email instance, n: word in the vocabulary)
         # Each entry in the matrix represents how many times a word n appeared in a particular email instance m
@@ -115,7 +101,7 @@ class EmailClassifier:
 
         # CLEAN VOCABULARY
         print('=====CLEANING VOCABULARY======')
-        self.vocabulary = [word for word in self.vocabulary if word.isalpha()]
+        self.vocabulary = [word for word in self.vocabulary if word.isalpha()]      
         print('=====VOCABULARY CLEANED========')
 
         # Calculate the prior probabilites [p(ham), p(spam)]
@@ -188,7 +174,7 @@ class EmailClassifier:
     def check_performance(self):
         email_actual_class = []
         email_predicted_class = []
-
+        
         for curr_email_index in self.email_test.index.values:
             print(curr_email_index)
             email_actual_class.append(self.email_test.loc[curr_email_index, 'class'])
