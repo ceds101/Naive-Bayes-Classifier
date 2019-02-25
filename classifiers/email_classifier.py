@@ -4,6 +4,8 @@ import re
 import math
 import json
 import time
+import multiprocessing
+from functools import partial
 from pandas import read_json
 from pandas import DataFrame
 from sklearn.model_selection import train_test_split
@@ -35,22 +37,58 @@ class EmailClassifier:
     def __init__(self, dataset_dir = None, laplace_smoothing = 0):
         self.dataset_dir = dataset_dir
         self.laplace_smoothing = laplace_smoothing
-    
+
+    def parse_email(self, email_file):
+        with open(self.dataset_dir + email_file, encoding="utf8", errors="ignore") as email_fp:
+            try:
+                email = mailparser.parse_from_file_obj(email_fp)
+                email_row = DataFrame({"message":[email.body], 
+                                        "class":[email_file.split(".")[-1]]})
+                #self.email_array = self.email_array.append(email_row, ignore_index=True)
+                print(email_file, "read")
+                return email_row
+            except:
+                pass
+            
+    def train_word(self, email_indexes, vocab_map, word):
+        print('Training for word:', word)
+        p_word_ham = 0.0
+        p_word_spam = 0.0
+
+        n_word_ham = 0
+        n_word_spam = 0
+
+        p_word = {}
+        p_word['ham'] = {}
+        p_word['spam'] = {}
+
+        for index, email_num in enumerate(email_indexes):
+            if self.email_train.loc[email_num, 'class'] == "ham":
+                n_word_ham = n_word_ham + self.word_counts[index, vocab_map[word]]
+            else:
+                n_word_spam = n_word_spam + self.word_counts[index, vocab_map[word]]
+
+        p_word_ham = (n_word_ham + self.laplace_smoothing)/(self.n_ham + len(self.vocabulary))
+        p_word_spam = (n_word_spam + self.laplace_smoothing)/(self.n_spam + len(self.vocabulary))
+
+        p_word['ham'][word] = p_word_ham
+        p_word['spam'][word] = p_word_spam
+
+        print('Done training for word:', word)
+        print(len(self.vocabulary))
+        return p_word
+
     def train(self):
         #PARSE EMAIL DATASET
         print('====PARSING EMAILS====')
         start_parse = time.time()
 
-        for email_file in os.listdir(self.dataset_dir): #array[start:end]
-            with open(self.dataset_dir + email_file, encoding="utf8", errors="ignore") as email_fp:
-                try:
-                    email = mailparser.parse_from_file_obj(email_fp)
-                    email_row = DataFrame({"message":[email.body], 
-                                        "class":[email_file.split(".")[-1]]})
-                    self.email_array = self.email_array.append(email_row, ignore_index=True)
-                    print(email_file, "appended into array")
-                except:
-                    pass
+        pool = multiprocessing.Pool()
+        email_rows = pool.map(self.parse_email, os.listdir(self.dataset_dir))
+        pool.close()
+        pool.join()
+
+        self.email_array = self.email_array.append(email_rows, ignore_index=True)
         
         end_parse = time.time()
         print('====PARSING FINISHED====')
@@ -74,9 +112,9 @@ class EmailClassifier:
         self.vocabulary = vectorizer.get_feature_names()
 
         # CLEAN VOCABULARY
-        for word in list(self.vocabulary):
-            if not word.isalpha():
-                self.vocabulary.remove(word)
+        print('=====CLEANING VOCABULARY======')
+        self.vocabulary = [word for word in self.vocabulary if word.isalpha()]
+        print('=====VOCABULARY CLEANED========')
 
         # Calculate the prior probabilites [p(ham), p(spam)]
         email_indexes = self.email_train.index.values
@@ -99,26 +137,15 @@ class EmailClassifier:
         # [p(word_1|ham), p(word_1|spam), p(word_2|spam) ....]
         vocab_map = vectorizer.vocabulary_
 
-        for n, word in enumerate(self.vocabulary):
-            print('Training for word:', word)
-            p_word_ham = 0.0
-            p_word_spam = 0.0
+        pool = multiprocessing.Pool()
+        func_train_word = partial(self.train_word, email_indexes, vocab_map)
+        curr_p_words = pool.map(func_train_word, self.vocabulary)
+        pool.close()
+        pool.join()
 
-            n_word_ham = 0
-            n_word_spam = 0
-            for index, email_num in enumerate(email_indexes):
-                if self.email_train.loc[email_num, 'class'] == "ham":
-                    n_word_ham = n_word_ham + self.word_counts[index, vocab_map[word]]
-                else:
-                    n_word_spam = n_word_spam + self.word_counts[index, vocab_map[word]]
-
-            p_word_ham = (n_word_ham + self.laplace_smoothing)/(self.n_ham + len(self.vocabulary))
-            p_word_spam = (n_word_spam + self.laplace_smoothing)/(self.n_spam + len(self.vocabulary))
-
-            self.p_words['ham'][word] = p_word_ham
-            self.p_words['spam'][word] = p_word_spam
-            print('Done training for word:', word)
-            print('Progress:', n+1, "/" , len(self.vocabulary))
+        for curr_p_word in curr_p_words:
+            self.p_words['ham'].update(curr_p_word['ham'])
+            self.p_words['spam'].update(curr_p_word['spam'])
 
         end_train = time.time()
         print('====TRAINING END====')
