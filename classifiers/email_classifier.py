@@ -44,8 +44,8 @@ class EmailClassifier:
         self.dataset_dir = dataset_dir
         self.laplace_smoothing = laplace_smoothing
 
-    def calc_word_priors(self, word, vocab_map):
-        # print('Prior proby for word:', word)
+    def calc_word_proby(self, word, vocab_map):
+        # print('Proby for word:', word)
 
         p_word = {}
         p_word['ham'] = 0.0
@@ -145,7 +145,7 @@ class EmailClassifier:
         # [p(word_1|ham), p(word_1|spam), p(word_2|spam) ....]
 
         for word in email_words:
-            curr_p_word = self.calc_word_priors(word, vocab_map)
+            curr_p_word = self.calc_word_proby(word, vocab_map)
             v_ham = v_ham + math.log(curr_p_word['ham'])
             v_spam = v_spam + math.log(curr_p_word['spam'])
         
