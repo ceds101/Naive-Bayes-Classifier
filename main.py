@@ -1,9 +1,10 @@
 import utils
+
 from classifiers.email_classifier import EmailClassifier
-import mailparser
+from classifiers.preprocessor import Preprocessor
 
 def main():
-    email_classifier = EmailClassifier('dataset/trec07p_clean/data/', 1)
+    email_classifier = EmailClassifier('dataset/trec07p_clean/data/', 1, Preprocessor())
     email_classifier.train()
     #email_classifier.load_classifier()
     email_classifier.check_performance()
