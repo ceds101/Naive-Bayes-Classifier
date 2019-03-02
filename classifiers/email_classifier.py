@@ -94,7 +94,7 @@ class EmailClassifier:
         self.email_array['message'] = self.email_array['message'].map(self.preprocessor.preprocess_text)
         self.email_array = self.email_array.dropna()
         end_clean = time.time()
-        print(self.email_array)
+        # print(self.email_array)
         print('====CLEANING FINISHED=====')
         print(end_clean - start_clean, "Seconds")
 
