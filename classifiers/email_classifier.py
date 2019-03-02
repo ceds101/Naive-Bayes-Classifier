@@ -26,7 +26,7 @@ class EmailClassifier:
     email_train = DataFrame({'message': [], 'class': []})
     email_test = DataFrame({'message': [], 'class': []})
 
-    vocabulary = None
+    vocabulary_len = None
     vocab_map = None
     word_counts = None
     email_classes = None
@@ -44,7 +44,7 @@ class EmailClassifier:
         self.dataset_dir = dataset_dir
         self.laplace_smoothing = laplace_smoothing
 
-    def calc_word_proby(self, word, vocab_map):
+    def calc_word_proby(self, word):
         # print('Proby for word:', word)
 
         p_word = {}
@@ -52,9 +52,9 @@ class EmailClassifier:
         p_word['spam'] = 0.0
 
         #if current word is not on vocabulary use lambda/(n_class + |V|)
-        if word not in vocab_map:
-            p_word['ham'] = (self.laplace_smoothing)/(self.n['ham'] + len(self.vocabulary))
-            p_word['spam'] = (self.laplace_smoothing)/(self.n['spam'] + len(self.vocabulary))
+        if word not in self.vocab_map:
+            p_word['ham'] = (self.laplace_smoothing)/(self.n['ham'] + self.vocabulary_len)
+            p_word['spam'] = (self.laplace_smoothing)/(self.n['spam'] + self.vocabulary_len)
             # print('Done for word:', word)
             # print('Probability ham:', p_word['ham'])
             # print('Probability spam:', p_word['spam'])
@@ -67,10 +67,10 @@ class EmailClassifier:
         #iterate email_classes list
             #n_word[email_class] = n_word[class] + self.word_counts[index, vocab_map[word]]
         for index, curr_email_class in enumerate(self.email_train['class'].values):
-            n_word[curr_email_class] = n_word[curr_email_class] + self.word_counts[index, vocab_map[word]]
+            n_word[curr_email_class] = n_word[curr_email_class] + self.word_counts[index, self.vocab_map[word]]
 
-        p_word['ham'] = (n_word['ham'] + self.laplace_smoothing)/(self.n['ham'] + len(self.vocabulary))
-        p_word['spam'] = (n_word['spam'] + self.laplace_smoothing)/(self.n['spam'] + len(self.vocabulary))
+        p_word['ham'] = (n_word['ham'] + self.laplace_smoothing)/(self.n['ham'] + self.vocabulary_len)
+        p_word['spam'] = (n_word['spam'] + self.laplace_smoothing)/(self.n['spam'] + self.vocabulary_len)
 
         # print('Done for word:', word)
         # print('Probability ham:', p_word['ham'])
@@ -111,7 +111,8 @@ class EmailClassifier:
         # This will generate a matrix m x n (m: email instance, n: word in the vocabulary)
         # Each entry in the matrix represents how many times a word n appeared in a particular email instance m
         self.word_counts = vectorizer.fit_transform(self.email_train['message'].values) 
-        self.vocabulary = vectorizer.get_feature_names()
+        vocabulary = vectorizer.get_feature_names()
+        self.vocabulary_len = len(vocabulary)
         self.vocab_map = vectorizer.vocabulary_
         
         # Calculate the prior probabilites [p(ham), p(spam)]
@@ -133,12 +134,12 @@ class EmailClassifier:
 
         print("Train size:", email_count)
         print("Test size:", len(self.email_test.index))
-        print(len(num_of_words_array))
+        print(num_of_words_array.sum())
 
         #Save classifier attributes
         #self.save_classifier()
 
-    def classify_email(self, email_string, vocab_map):
+    def classify_email(self, email_string):
         email_class = None
         email_words = re.findall(r'\w+', email_string.lower()) #REPLACE WITH PREPROCESSOR
         
@@ -149,7 +150,7 @@ class EmailClassifier:
         # [p(word_1|ham), p(word_1|spam), p(word_2|spam) ....]
 
         for word in email_words:
-            curr_p_word = self.calc_word_proby(word, vocab_map)
+            curr_p_word = self.calc_word_proby(word)
             v_ham = v_ham + math.log(curr_p_word['ham'])
             v_spam = v_spam + math.log(curr_p_word['spam'])
         
@@ -164,17 +165,12 @@ class EmailClassifier:
         return email_class
 
     def check_performance(self):
-        email_actual_class = []
-        email_predicted_class = []
-        
-        for curr_email_index in self.email_test.index.values:
-            print(curr_email_index)
-            email_actual_class.append(self.email_test.loc[curr_email_index, 'class'])
-            email_predicted_class.append(self.classify_email(self.email_test.loc[curr_email_index, 'message'], self.vocab_map))
-        
+        email_actual_class = self.email_test['class'].values
+        email_predicted_class = self.email_test['message'].map(self.classify_email)
+
         print(confusion_matrix(email_actual_class, email_predicted_class, labels=["ham", "spam"]))
-        #print("Accuracy:" , accuracy_score(email_actual_class, email_predicted_class))
-        print(classification_report(email_actual_class, email_predicted_class, labels=["ham", "spam"]))
+        print("Accuracy:" , accuracy_score(email_actual_class, email_predicted_class))
+        print(classification_report(email_actual_class, email_predicted_class, labels=["ham", "spam"], digits = 4))
 
     #Save classifier attributes to JSON file
     def save_classifier(self):
