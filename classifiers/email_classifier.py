@@ -82,7 +82,7 @@ class EmailClassifier:
         print('====READING EMAILS CSV====')
         start_parse = time.time()
 
-        self.email_array = read_csv("dataset/trec07p_clean/emails.csv", index_col=False, nrows=500, encoding="utf-8")
+        self.email_array = read_csv("dataset/trec07p_clean/emails.csv", index_col=False, nrows=100, encoding="utf-8")
         self.email_array = self.email_array.dropna()
 
         end_parse = time.time()
@@ -90,9 +90,13 @@ class EmailClassifier:
         print(end_parse - start_parse, "Seconds")
 
         print('====CLEANING DATASET=====')
-        self.email_array['message'] = self.email_array['message'].apply(self.preprocessor.preprocess_text, 1)
+        start_clean = time.time()
+        self.email_array['message'] = self.email_array['message'].map(self.preprocessor.preprocess_text)
         self.email_array = self.email_array.dropna()
+        end_clean = time.time()
+        print(self.email_array)
         print('====CLEANING FINISHED=====')
+        print(end_clean - start_clean, "Seconds")
 
         #SPLIT TRAINING SET AND TEST SET
         print('====SPLITTING TRAIN-TEST====')
